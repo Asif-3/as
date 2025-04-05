@@ -1,0 +1,8 @@
+streamlit
+pandas
+matplotlib
+numpy
+pillow
+PyPDF2
+pytesseract
+openpyxl
