@@ -7,69 +7,88 @@ import PyPDF2
 import pytesseract
 from PIL import Image
 import json
-from github import Github  # NEW
+import base64
+import requests
+from datetime import datetime
+
+# Load GitHub Token from Streamlit Secrets
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+GITHUB_REPO = "asif-3/as"
+
+def push_to_github(file_path, repo_path, commit_message):
+    """Push file to GitHub repo using GitHub API."""
+    with open(file_path, "rb") as f:
+        content = base64.b64encode(f.read()).decode()
+
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{repo_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    # Check if the file already exists
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+        data = {
+            "message": commit_message,
+            "content": content,
+            "sha": sha
+        }
+    else:
+        data = {
+            "message": commit_message,
+            "content": content
+        }
+
+    result = requests.put(url, headers=headers, json=data)
+    return result.status_code == 201 or result.status_code == 200
 
 # Set Page Configuration
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
 
-# GitHub Setup
-GITHUB_TOKEN = st.secrets["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"]
-REPO_NAME = "asif-3/as"
-
-def save_to_github(file_path, github_path, commit_message):
-    g = Github(GITHUB_TOKEN)
-    repo = g.get_repo(REPO_NAME)
-    try:
-        contents = repo.get_contents(github_path)
-        with open(file_path, "rb") as f:
-            repo.update_file(github_path, commit_message, f.read(), contents.sha)
-    except:
-        with open(file_path, "rb") as f:
-            repo.create_file(github_path, commit_message, f.read())
-
 # Sidebar - Navigation
 st.sidebar.title("📌 Navigation")
-page = st.sidebar.radio("Go to:", ["📝 Notes App", "📊 Data Visualizer", "📂 File Uploader", "🔢 Text Analyzer", "🧮 Calculator"])
+page = st.sidebar.radio("Go to:", ["📝 Notes App", "📈 Data Visualizer", "📂 File Uploader", "🔢 Text Analyzer", "🧮 Calculator"])
 
-# Function to Save Uploaded Files
-def save_uploaded_file(uploaded_file):
-    folder = "uploaded_files"
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    file_path = os.path.join(folder, uploaded_file.name)
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return file_path
+# Save file and push to GitHub
+def save_and_push(file_path, repo_path, commit_message):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    push_to_github(file_path, repo_path, commit_message)
 
 # ------------------------ 📝 Notes App ------------------------
 if page == "📝 Notes App":
     st.title("📝 Notes App")
-    notes_file = "notes.txt"
+    notes_file = "data/notes.txt"
     note = st.text_area("Write your note:", height=150)
     if st.button("Save Note"):
         with open(notes_file, "a") as file:
             file.write(note + "\n" + "-"*40 + "\n")
-        save_to_github(notes_file, "data/notes.txt", "Updated notes via Streamlit")
-        st.success("Note saved to GitHub!")
+        save_and_push(notes_file, "data/notes.txt", "Add note")
+        st.success("Note saved and pushed to GitHub!")
     if os.path.exists(notes_file):
         with open(notes_file, "r") as file:
             st.subheader("📜 Your Saved Notes:")
             st.text(file.read())
 
-# ------------------------ 📊 Data Visualizer ------------------------
-elif page == "📊 Data Visualizer":
-    st.title("📊 Data Visualization Dashboard")
+# ------------------------ 📈 Data Visualizer ------------------------
+elif page == "📈 Data Visualizer":
+    st.title("📈 Data Visualization Dashboard")
     uploaded_file = st.file_uploader("Upload CSV, Excel, or JSON file", type=["csv", "xlsx", "json"])
 
     if uploaded_file is not None:
-        file_path = save_uploaded_file(uploaded_file)
+        uploaded_path = f"uploaded/{uploaded_file.name}"
+        with open(uploaded_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        save_and_push(uploaded_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
+
         try:
             if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(file_path)
+                df = pd.read_csv(uploaded_path)
             elif uploaded_file.name.endswith(".xlsx"):
-                df = pd.read_excel(file_path, engine='openpyxl')
+                df = pd.read_excel(uploaded_path, engine='openpyxl')
             elif uploaded_file.name.endswith(".json"):
-                df = pd.read_json(file_path)
+                df = pd.read_json(uploaded_path)
             else:
                 df = None
 
@@ -119,8 +138,10 @@ elif page == "📂 File Uploader":
     st.title("📂 File Uploader & Viewer")
     uploaded_file = st.file_uploader("Upload any file", type=None)
     if uploaded_file is not None:
-        file_path = save_uploaded_file(uploaded_file)
-        save_to_github(file_path, f"uploaded/{uploaded_file.name}", f"Uploaded {uploaded_file.name} via Streamlit")  # NEW
+        file_path = f"uploaded/{uploaded_file.name}"
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        save_and_push(file_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
 
         file_extension = uploaded_file.name.split('.')[-1].lower()
         try:
