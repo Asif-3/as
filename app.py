@@ -15,8 +15,8 @@ from datetime import datetime
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 GITHUB_REPO = "asif-3/as"
 
-# Push any file to GitHub
 def push_to_github(file_path, repo_path, commit_message):
+    """Push file to GitHub repo using GitHub API."""
     with open(file_path, "rb") as f:
         content = base64.b64encode(f.read()).decode()
 
@@ -26,6 +26,7 @@ def push_to_github(file_path, repo_path, commit_message):
         "Accept": "application/vnd.github.v3+json"
     }
 
+    # Check if the file already exists
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         sha = response.json()["sha"]
@@ -41,68 +42,35 @@ def push_to_github(file_path, repo_path, commit_message):
         }
 
     result = requests.put(url, headers=headers, json=data)
-    return result.status_code in [200, 201]
-
-# Save a note directly to GitHub
-def save_note_to_github(note_text):
-    path = "data/notes.txt"
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        content = base64.b64decode(response.json()["content"]).decode("utf-8")
-        sha = response.json()["sha"]
-        updated_content = content + "\n" + note_text + "\n" + "-"*40
-    else:
-        updated_content = note_text + "\n" + "-"*40
-        sha = None
-
-    data = {
-        "message": "Update note",
-        "content": base64.b64encode(updated_content.encode("utf-8")).decode("utf-8"),
-        "branch": "main"
-    }
-    if sha:
-        data["sha"] = sha
-
-    put_response = requests.put(url, headers=headers, json=data)
-    return put_response.status_code in [200, 201]
+    return result.status_code == 201 or result.status_code == 200
 
 # Set Page Configuration
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
 
-# Sidebar Navigation
+# Sidebar - Navigation
 st.sidebar.title("📌 Navigation")
 page = st.sidebar.radio("Go to:", ["📝 Notes App", "📈 Data Visualizer", "📂 File Uploader", "🔢 Text Analyzer", "🧮 Calculator"])
+
+# Save file and push to GitHub
+def save_and_push(file_path, repo_path, commit_message):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    push_to_github(file_path, repo_path, commit_message)
 
 # ------------------------ 📝 Notes App ------------------------
 if page == "📝 Notes App":
     st.title("📝 Notes App")
+    notes_file = "data/notes.txt"
+    os.makedirs(os.path.dirname(notes_file), exist_ok=True)
     note = st.text_area("Write your note:", height=150)
     if st.button("Save Note"):
-        success = save_note_to_github(note)
-        if success:
-            st.success("Note saved to GitHub!")
-        else:
-            st.error("Failed to save note to GitHub.")
-
-    if st.button("Load Saved Notes"):
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/data/notes.txt"
-        headers = {
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            content = base64.b64decode(response.json()["content"]).decode("utf-8")
+        with open(notes_file, "a") as file:
+            file.write(note + "\n" + "-"*40 + "\n")
+        save_and_push(notes_file, "data/notes.txt", "Add note")
+        st.success("Note saved and pushed to GitHub!")
+    if os.path.exists(notes_file):
+        with open(notes_file, "r") as file:
             st.subheader("📜 Your Saved Notes:")
-            st.text(content)
-        else:
-            st.warning("Could not load notes from GitHub.")
+            st.text(file.read())
 
 # ------------------------ 📈 Data Visualizer ------------------------
 elif page == "📈 Data Visualizer":
@@ -110,10 +78,13 @@ elif page == "📈 Data Visualizer":
     uploaded_file = st.file_uploader("Upload CSV, Excel, or JSON file", type=["csv", "xlsx", "json"])
 
     if uploaded_file is not None:
-        uploaded_path = f"uploaded/{uploaded_file.name}"
+        uploaded_dir = "uploaded"
+        os.makedirs(uploaded_dir, exist_ok=True)
+        uploaded_path = os.path.join(uploaded_dir, uploaded_file.name)
+
         with open(uploaded_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        push_to_github(uploaded_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
+        save_and_push(uploaded_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
 
         try:
             if uploaded_file.name.endswith(".csv"):
@@ -171,10 +142,13 @@ elif page == "📂 File Uploader":
     st.title("📂 File Uploader & Viewer")
     uploaded_file = st.file_uploader("Upload any file", type=None)
     if uploaded_file is not None:
-        file_path = f"uploaded/{uploaded_file.name}"
+        uploaded_dir = "uploaded"
+        os.makedirs(uploaded_dir, exist_ok=True)
+        file_path = os.path.join(uploaded_dir, uploaded_file.name)
+
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        push_to_github(file_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
+        save_and_push(file_path, f"uploaded/{uploaded_file.name}", f"Add uploaded file {uploaded_file.name}")
 
         file_extension = uploaded_file.name.split('.')[-1].lower()
         try:
