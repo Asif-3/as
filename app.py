@@ -35,15 +35,35 @@ def save_uploaded_file(uploaded_file):
 if page == "📝 Notes App":
     st.title("📝 Notes App")
     notes_file = "notes.txt"
+    separator = "-" * 40
+
+    # Add Note
     note = st.text_area("Write your note:", height=150)
     if st.button("Save Note"):
-        with open(notes_file, "a") as file:
-            file.write(note + "\n" + "-"*40 + "\n")
+        with open(notes_file, "a", encoding="utf-8") as file:
+            file.write(note.strip() + "\n" + separator + "\n")
         st.success("Note saved!")
+
+    # View and Delete Notes
     if os.path.exists(notes_file):
-        with open(notes_file, "r") as file:
-            st.subheader("📜 Your Saved Notes:")
-            st.text(file.read())
+        with open(notes_file, "r", encoding="utf-8") as file:
+            content = file.read().strip()
+
+        notes = content.split(separator)
+        notes = [n.strip() for n in notes if n.strip()]
+
+        st.subheader("📜 Your Saved Notes:")
+        for idx, note in enumerate(notes):
+            with st.expander(f"🗒️ Note {idx + 1}"):
+                st.text(note)
+                if st.button(f"🗑️ Delete Note {idx + 1}", key=f"delete_{idx}"):
+                    notes.pop(idx)
+                    # Re-save remaining notes
+                    with open(notes_file, "w", encoding="utf-8") as file:
+                        for n in notes:
+                            file.write(n + "\n" + separator + "\n")
+                    st.success(f"Note {idx + 1} deleted.")
+                    st.experimental_rerun()
 
 # ------------------------ 📊 Data Visualizer ------------------------
 elif page == "📊 Data Visualizer":
