@@ -37,18 +37,14 @@ if page == "📝 Notes App":
     notes_file = "notes.txt"
     separator = "-" * 40
 
-    # Initialize session state for delete trigger
-    if "delete_note_index" not in st.session_state:
-        st.session_state.delete_note_index = None
-
-    # Write a note
+    # Add a note
     note = st.text_area("Write your note:", height=150)
     if st.button("Save Note"):
         with open(notes_file, "a", encoding="utf-8") as file:
             file.write(note.strip() + "\n" + separator + "\n")
         st.success("Note saved!")
 
-    # Read and display saved notes
+    # Read and display notes
     if os.path.exists(notes_file):
         with open(notes_file, "r", encoding="utf-8") as file:
             content = file.read().strip()
@@ -58,22 +54,24 @@ if page == "📝 Notes App":
 
         st.subheader("📜 Your Saved Notes:")
 
-        for idx, note in enumerate(notes):
-            with st.expander(f"🗒️ Note {idx + 1}"):
-                st.text(note)
-                if st.button(f"🗑️ Delete Note {idx + 1}", key=f"delete_{idx}"):
-                    st.session_state.delete_note_index = idx
-                    st.experimental_rerun()
+        # Temporary list to track updated notes
+        updated_notes = []
+        for idx, single_note in enumerate(notes):
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                st.text_area(f"Note {idx + 1}", value=single_note, key=f"note_{idx}", height=100, disabled=True)
+            with col2:
+                if st.button(f"🗑️", key=f"delete_{idx}"):
+                    st.success(f"Deleted Note {idx + 1}")
+                else:
+                    updated_notes.append(single_note)
 
-        # Delete after rerun
-        if st.session_state.delete_note_index is not None:
-            del_index = st.session_state.delete_note_index
-            notes.pop(del_index)
+        # If any deletions were made, rewrite the file
+        if len(updated_notes) < len(notes):
             with open(notes_file, "w", encoding="utf-8") as file:
-                for n in notes:
+                for n in updated_notes:
                     file.write(n + "\n" + separator + "\n")
-            st.session_state.delete_note_index = None
-            st.success(f"Note {del_index + 1} deleted.")
+
 
 # ------------------------ 📊 Data Visualizer ------------------------
 elif page == "📊 Data Visualizer":
