@@ -13,7 +13,7 @@ from github import Github  # NEW
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
 
 # GitHub Setup
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+GITHUB_TOKEN = st.secrets["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"]
 REPO_NAME = "asif-3/as"
 
 def save_to_github(file_path, github_path, commit_message):
