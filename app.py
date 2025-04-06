@@ -7,45 +7,12 @@ import PyPDF2
 import pytesseract
 from PIL import Image
 import json
-import requests
-from datetime import datetime
-import base64
 
-# GitHub Config
-GITHUB_USER = "asif-3"
-GITHUB_REPO = "as"
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Must be set in .streamlit/secrets.toml
-
-def upload_to_github(file_path, github_path, commit_message):
-    with open(file_path, "rb") as file:
-        content = file.read()
-        encoded_content = base64.b64encode(content).decode("utf-8")
-
-    url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{github_path}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        sha = response.json()["sha"]
-        data = {
-            "message": commit_message,
-            "content": encoded_content,
-            "sha": sha,
-        }
-    else:
-        data = {
-            "message": commit_message,
-            "content": encoded_content,
-        }
-
-    response = requests.put(url, headers=headers, json=data)
-    if response.status_code in [200, 201]:
-        st.success(f"✅ Uploaded to GitHub: {github_path}")
-    else:
-        st.error(f"❌ GitHub upload failed: {response.json()}")
+# Ensure required dependencies are installed
+try:
+    import openpyxl
+except ImportError:
+    st.error("Missing optional dependency 'openpyxl'. Use pip or conda to install openpyxl.")
 
 # Set Page Configuration
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
@@ -62,7 +29,6 @@ def save_uploaded_file(uploaded_file):
     file_path = os.path.join(folder, uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
-    upload_to_github(file_path, f"uploads/{uploaded_file.name}", f"Upload file {uploaded_file.name} at {datetime.now().isoformat()}")
     return file_path
 
 # ------------------------ 📝 Notes App ------------------------
@@ -73,8 +39,7 @@ if page == "📝 Notes App":
     if st.button("Save Note"):
         with open(notes_file, "a") as file:
             file.write(note + "\n" + "-"*40 + "\n")
-        upload_to_github(notes_file, "notes/notes.txt", f"Add note at {datetime.now().isoformat()}")
-        st.success("Note saved and uploaded to GitHub!")
+        st.success("Note saved!")
     if os.path.exists(notes_file):
         with open(notes_file, "r") as file:
             st.subheader("📜 Your Saved Notes:")
@@ -153,6 +118,7 @@ elif page == "📂 File Uploader":
             elif file_extension in ["jpg", "jpeg", "png"]:
                 image = Image.open(file_path)
                 st.image(image, caption="Uploaded Image", use_container_width=True)
+                st.success("Image saved successfully!")
                 st.subheader("🔍 Image Identification:")
                 try:
                     text = pytesseract.image_to_string(image)
