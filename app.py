@@ -15,6 +15,7 @@ from datetime import datetime
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 GITHUB_REPO = "asif-3/as"
 
+
 def push_to_github(file_path, repo_path, commit_message):
     """Push file to GitHub repo using GitHub API."""
     with open(file_path, "rb") as f:
@@ -26,7 +27,6 @@ def push_to_github(file_path, repo_path, commit_message):
         "Accept": "application/vnd.github.v3+json"
     }
 
-    # Check if the file already exists
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         sha = response.json()["sha"]
@@ -42,19 +42,28 @@ def push_to_github(file_path, repo_path, commit_message):
         }
 
     result = requests.put(url, headers=headers, json=data)
-    return result.status_code == 201 or result.status_code == 200
+    return result.status_code in [200, 201]
+
 
 # Set Page Configuration
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
 
 # Sidebar - Navigation
 st.sidebar.title("📌 Navigation")
-page = st.sidebar.radio("Go to:", ["📝 Notes App", "📈 Data Visualizer", "📂 File Uploader", "🔢 Text Analyzer", "🧮 Calculator"])
+page = st.sidebar.radio("Go to:", [
+    "📝 Notes App", "📈 Data Visualizer", "📂 File Uploader",
+    "🔢 Text Analyzer", "🧮 Calculator"])
+
 
 # Save file and push to GitHub
+
 def save_and_push(file_path, repo_path, commit_message):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "rb") as f:
+        with open(file_path, "wb") as wf:
+            wf.write(f.read())
     push_to_github(file_path, repo_path, commit_message)
+
 
 # ------------------------ 📝 Notes App ------------------------
 if page == "📝 Notes App":
