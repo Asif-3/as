@@ -7,15 +7,25 @@ import PyPDF2
 import pytesseract
 from PIL import Image
 import json
-
-# Ensure required dependencies are installed
-try:
-    import openpyxl
-except ImportError:
-    st.error("Missing optional dependency 'openpyxl'. Use pip or conda to install openpyxl.")
+from github import Github  # NEW
 
 # Set Page Configuration
 st.set_page_config(page_title="Advanced Web Portal", page_icon="🚀", layout="wide")
+
+# GitHub Setup
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+REPO_NAME = "asif-3/as"
+
+def save_to_github(file_path, github_path, commit_message):
+    g = Github(GITHUB_TOKEN)
+    repo = g.get_repo(REPO_NAME)
+    try:
+        contents = repo.get_contents(github_path)
+        with open(file_path, "rb") as f:
+            repo.update_file(github_path, commit_message, f.read(), contents.sha)
+    except:
+        with open(file_path, "rb") as f:
+            repo.create_file(github_path, commit_message, f.read())
 
 # Sidebar - Navigation
 st.sidebar.title("📌 Navigation")
@@ -39,7 +49,8 @@ if page == "📝 Notes App":
     if st.button("Save Note"):
         with open(notes_file, "a") as file:
             file.write(note + "\n" + "-"*40 + "\n")
-        st.success("Note saved!")
+        save_to_github(notes_file, "data/notes.txt", "Updated notes via Streamlit")
+        st.success("Note saved to GitHub!")
     if os.path.exists(notes_file):
         with open(notes_file, "r") as file:
             st.subheader("📜 Your Saved Notes:")
@@ -109,6 +120,8 @@ elif page == "📂 File Uploader":
     uploaded_file = st.file_uploader("Upload any file", type=None)
     if uploaded_file is not None:
         file_path = save_uploaded_file(uploaded_file)
+        save_to_github(file_path, f"uploaded/{uploaded_file.name}", f"Uploaded {uploaded_file.name} via Streamlit")  # NEW
+
         file_extension = uploaded_file.name.split('.')[-1].lower()
         try:
             if file_extension in ["txt", "csv", "json"]:
